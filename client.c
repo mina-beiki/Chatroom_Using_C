@@ -68,15 +68,6 @@ int main(int argc, char const *argv[])
             break;
         }
 
-        valread = read(sock, buffer, sizeof(buffer));
-
-        if (valread < 0)
-        {
-            perror("Reading failed");
-            exit(EXIT_FAILURE);
-        }
-
-        printf("buffer= %s\n", buffer);
     }
     
     return 0;
