@@ -54,6 +54,11 @@ int main(int argc, char const *argv[])
     int valread;
     char buffer[1024] = {0};
     char command[50];
+    char name[20];
+
+    printf("> Welcome! What's your name?");
+    gets(name);
+    send(sock, name, strlen(name), 0);
 
     while (1)
     {
@@ -67,6 +72,14 @@ int main(int argc, char const *argv[])
             printf("Disconnected\n");
             break;
         }
+
+        /*valread = read(sock, buffer, sizeof(buffer));
+
+        if (valread < 0)
+        {
+            perror("Reading failed");
+            exit(EXIT_FAILURE);
+        }*/
 
     }
     

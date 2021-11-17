@@ -46,6 +46,12 @@ void *client_handler(void *vargp)
             exit(EXIT_FAILURE);
         }
 
+        if (strcmp(buffer, "name") == 0)
+        {
+            printf("Client %d's name: %s\n", client_socket, buffer);
+            break;
+        }
+        
         buffer[valread] = '\0';
 
         if (strcmp(buffer, "quit") == 0)
