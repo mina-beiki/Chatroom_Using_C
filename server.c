@@ -61,6 +61,7 @@ void *client_handler(void *vargp)
 
     /* Client settings */
         valread = read(client_socket, buffer, sizeof(buffer));
+        printf("%s has joined.",buffer);
 		User *user_s = (User *)malloc(sizeof(User));
 		User args; 
         args.port = client_socket;
@@ -74,46 +75,72 @@ void *client_handler(void *vargp)
     while (1)
     {
         
-        valread = read(client_socket, buffer, sizeof(buffer));
-        if (valread < 0)
-        {
-            perror("Empty read");
-            exit(EXIT_FAILURE);
-        }
+        bzero(buffer, 256);
 
-        if (strcmp(buffer, "name") == 0)
+        /* Client quits */
+        if (strncmp(buffer, "quit", 4) == 0)
         {
-            printf("Client %d's name: %s\n", client_socket, buffer);
+            printf("** %d: %s left the chatroom. **\n", args.port, args.username);
+
+            delete_list(args.port, users, &user_tail);
+            for (int i = 0; i < MAX_GROUPS; i++)
+            {
+                delete_list(args.port, groups[i], &group_tail[i]);
+            }
+
+            display_list(users, user_tail);
+
+            close(args.port);
+
             break;
         }
-        
-        buffer[valread] = '\0';
-
-        if (strcmp(buffer, "quit") == 0)
+        else if (strncmp(buffer, "join", 4) == 0)
         {
-            printf("Client %d: disconnected\n", client_socket);
-            break;
-        }
+            char *group_id_str = malloc(sizeof(MAXDATALEN));
+            strcpy(group_id_str, buffer + 6);
+            int group_id = atoi(group_id_str);
+            printf("** %d: %s joined group number %d. **\n\n", my_port, uname, group_id);
 
-        if (strcmp(buffer, "join") == 0)
+            insert_list(my_port, uname, groups[group_id], &group_tail[group_id]);
+        }
+        else if (strncmp(buffer, "/leave", 6) == 0)
         {
-            printf("Client %d: wants to join!\n", client_socket);
-            break;
+            char *group_id_str = malloc(sizeof(MAXDATALEN));
+            strcpy(group_id_str, buffer + 7);
+            int group_id = atoi(group_id_str);
+            printf("** %d: %s left group number %d. **\n\n", my_port, uname, group_id);
+
+            delete_list(my_port, groups[group_id], &group_tail[group_id]);
         }
+        else if (strncmp(buffer, "/send", 5) == 0)
+        {
+            int space_pos = next_space(buffer + 6);
+            char *group_id_str = malloc(sizeof(MAXDATALEN));
+            strncpy(group_id_str, buffer + 6, space_pos);
+            int group_id = atoi(group_id_str);
 
-        time_t mytime = time(NULL);
-        char * time_str = ctime(&mytime);
-        time_str[strlen(time_str)-1] = '\0';
+            if (search_list(my_port, groups[group_id], group_tail[group_id]) == -1)
+            {
+                continue;
+            }
 
-        double time_spent = (double)(clock() - begin) / CLOCKS_PER_SEC * 1000;
-        snprintf(response, sizeof(response), "%s Pong %d: %fs", time_str, client_socket, time_spent);
+            printf("%s %s\n", uname, buffer);
+            strcpy(msg, uname);
+            x = strlen(msg);
+            strp = msg;
+            strp += x;
+            strcat(strp, buffer + 7 + space_pos);
+            msglen = strlen(msg);
 
-        send(client_socket, response, sizeof(response), 0);
-        printf("%s: User %d\n", time_str, client_socket);
+            for (int i = 0; i < group_tail[group_id]; i++)
+            {
+                if (groups[group_id][i].port != my_port)
+                    send(groups[group_id][i].port, msg, msglen, 0);
+            }
 
-        fflush(stdout);
-        buffer[0] = '\0';
-        response[0] = '\0';
+            bzero(msg, MAXDATALEN);
+        }
+        display_list(users, user_tail);
     }
 }
 
@@ -159,6 +186,7 @@ int main(int argc, char const *argv[])
         }
 
         printf("Accepted client %s:%d id:%d\n", inet_ntoa(address.sin_addr), ntohs(address.sin_port), client_socket);
+        insert_list(client_socket, username, users, &user_tail); 
 
         // Using thread to handle the client
         pthread_t thread_id;
