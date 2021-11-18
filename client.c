@@ -7,17 +7,22 @@ Every client can do the following commands:
     3. Stop
 */
 // socket libraries
+
+
 #include <stdio.h>
-#include <sys/socket.h>
 #include <stdlib.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-//
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+#include <signal.h>
+
 #define MAXDATALEN 256
 
-void *quit();
+int *quit();
 void *chat_write(int);
 void *chat_read(int);
 
@@ -66,9 +71,9 @@ int main(int argc, char const *argv[])
     char command[50];
     char name[20];
 
-    printf("> Welcome! What's your name?");
-    gets(name);
-    send(sock, name, strlen(name), 0);
+    
+    strcpy(name, argv[2]);
+    printf("name=%s\n",name);
 
     while (1)
     {
@@ -133,7 +138,7 @@ void *chat_write(int sockfd)
         {
             printf("buffer size full\t enter within %ld characters\n", sizeof(buffer));
             bzero(buffer, MAXDATALEN);
-            __fpurge(stdin);
+            //__fpurge(stdin);
         }
 
         n = send(sockfd, buffer, strlen(buffer), 0);
@@ -145,7 +150,8 @@ void *chat_write(int sockfd)
     }
 }
 
-void *quit()
+int *quit()
 {
     printf("\nType '/quit' TO EXIT\n");
+    return 0;
 }

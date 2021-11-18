@@ -40,6 +40,7 @@ int search_list(int port, User *list, int tail);
 void delete_list(int port, User *list, int *tail);
 void delete_all(User *list, int *tail);
 void display_list(const User *list, int tail); /*list all clients connected*/
+int next_space(char *str);
 
 char username[10];
 User users[MAX_USERS] = {0};
@@ -99,33 +100,37 @@ void *client_handler(void *vargp)
             char *group_id_str = malloc(sizeof(MAXDATALEN));
             strcpy(group_id_str, buffer + 6);
             int group_id = atoi(group_id_str);
-            printf("** %d: %s joined group number %d. **\n\n", my_port, uname, group_id);
+            printf("** %d: %s joined group number %d. **\n\n", args.port, args.username, group_id);
 
-            insert_list(my_port, uname, groups[group_id], &group_tail[group_id]);
+            insert_list(args.port, args.username, groups[group_id], &group_tail[group_id]);
         }
-        else if (strncmp(buffer, "/leave", 6) == 0)
+        else if (strncmp(buffer, "leave", 5) == 0)
         {
             char *group_id_str = malloc(sizeof(MAXDATALEN));
             strcpy(group_id_str, buffer + 7);
             int group_id = atoi(group_id_str);
-            printf("** %d: %s left group number %d. **\n\n", my_port, uname, group_id);
+            printf("** %d: %s left group number %d. **\n\n", args.port, args.username, group_id);
 
-            delete_list(my_port, groups[group_id], &group_tail[group_id]);
+            delete_list(args.port, groups[group_id], &group_tail[group_id]);
         }
-        else if (strncmp(buffer, "/send", 5) == 0)
+        else if (strncmp(buffer, "send", 4) == 0)
         {
+            char *strp;
+            char *msg = (char *)malloc(MAXDATALEN);
+            int my_port, x, y;
+            int msglen;
             int space_pos = next_space(buffer + 6);
             char *group_id_str = malloc(sizeof(MAXDATALEN));
             strncpy(group_id_str, buffer + 6, space_pos);
             int group_id = atoi(group_id_str);
 
-            if (search_list(my_port, groups[group_id], group_tail[group_id]) == -1)
+            if (search_list(args.port, groups[group_id], group_tail[group_id]) == -1)
             {
                 continue;
             }
 
-            printf("%s %s\n", uname, buffer);
-            strcpy(msg, uname);
+            printf("%s %s\n", args.username, buffer);
+            strcpy(msg, args.username);
             x = strlen(msg);
             strp = msg;
             strp += x;
@@ -134,7 +139,7 @@ void *client_handler(void *vargp)
 
             for (int i = 0; i < group_tail[group_id]; i++)
             {
-                if (groups[group_id][i].port != my_port)
+                if (groups[group_id][i].port != args.port)
                     send(groups[group_id][i].port, msg, msglen, 0);
             }
 
@@ -255,4 +260,18 @@ void display_list(const User *list, int tail)
 void delete_all(User *list, int *tail)
 {
     *tail = 0;
+}
+
+int next_space(char *str)
+{
+    int i = 0;
+    while (str[i] != '\0')
+    {
+        if (str[i] == ' ')
+        {
+            return i;
+        }
+        i++;
+    }
+    return -1;
 }
