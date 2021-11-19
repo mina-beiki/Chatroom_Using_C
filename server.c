@@ -1,17 +1,3 @@
-/* 
-Using sockets to connect to our server.
-Our server which will accept clients and give response to them.
-Our main input command are: 
-    1. Start [name]
-    2. Ping 
-    3. Stop
-Server responses:
-    1. Init user
-    2. Pong [status]
-    3. Release client
-*/
-
-// Socket libraries
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -28,6 +14,7 @@ Server responses:
 #define MAX_USERS 100
 #define MAX_GROUPS 10
 #define MAXDATALEN 256 // max size of messages to be sent
+#define MAXGROUP 10    // max number of groups
 
 /* Client structure */
 typedef struct{
@@ -47,32 +34,18 @@ User users[MAX_USERS] = {0};
 int user_tail = 0;
 User groups[MAX_GROUPS][MAX_USERS] = {0};
 int group_tail[MAX_USERS] = {0};
-char buffer[MAXDATALEN];
 
-void *client_handler(void *vargp)
+void *client_handler(void *arguments)
 {
-    int *temp = (int *)vargp;
-    int client_socket = *temp;
+    char buffer[MAXDATALEN], uname[10]; /* buffer for string the server sends */
+    User *args = arguments;
+    int my_port = args->port; /*socket variable passed as arg*/
+    char *strp;
+    char *msg = (char *)malloc(MAXDATALEN);
+    int msglen;
+    int x;
+    strcpy(uname, args->username);
 
-    int valread;
-    char buffer[1024] = {0};
-    char response[1024] = {0};
-
-    clock_t begin = clock();
-
-    /* Client settings */
-        valread = read(client_socket, buffer, sizeof(buffer));
-        printf("%s has joined.",buffer);
-		User *user_s = (User *)malloc(sizeof(User));
-		User args; 
-        args.port = client_socket;
-        strcpy(args.username, buffer);
-
-        buffer[valread] = '\0';
-        fflush(stdout);
-        buffer[0] = '\0';
-        response[0] = '\0';
-    
     while (1)
     {
         
@@ -81,56 +54,51 @@ void *client_handler(void *vargp)
         /* Client quits */
         if (strncmp(buffer, "quit", 4) == 0)
         {
-            printf("** %d: %s left the chatroom. **\n", args.port, args.username);
+            printf("** %d: %s left chat. Deleting from lists. **\n\n", my_port, uname);
 
-            delete_list(args.port, users, &user_tail);
-            for (int i = 0; i < MAX_GROUPS; i++)
+            delete_list(my_port, users, &user_tail);
+            for (int i = 0; i < MAXGROUP; i++)
             {
-                delete_list(args.port, groups[i], &group_tail[i]);
+                delete_list(my_port, groups[i], &group_tail[i]);
             }
 
             display_list(users, user_tail);
 
-            close(args.port);
-
-            break;
+            close(my_port);
+            free(msg);
         }
         else if (strncmp(buffer, "join", 4) == 0)
         {
             char *group_id_str = malloc(sizeof(MAXDATALEN));
             strcpy(group_id_str, buffer + 6);
             int group_id = atoi(group_id_str);
-            printf("** %d: %s joined group number %d. **\n\n", args.port, args.username, group_id);
+            printf("** %d: %s joined group number %d. **\n\n", my_port, uname, group_id);
 
-            insert_list(args.port, args.username, groups[group_id], &group_tail[group_id]);
+            insert_list(my_port, uname, groups[group_id], &group_tail[group_id]);
         }
         else if (strncmp(buffer, "leave", 5) == 0)
         {
             char *group_id_str = malloc(sizeof(MAXDATALEN));
             strcpy(group_id_str, buffer + 7);
             int group_id = atoi(group_id_str);
-            printf("** %d: %s left group number %d. **\n\n", args.port, args.username, group_id);
+            printf("** %d: %s left group number %d. **\n\n", my_port, uname, group_id);
 
-            delete_list(args.port, groups[group_id], &group_tail[group_id]);
+            delete_list(my_port, groups[group_id], &group_tail[group_id]);
         }
         else if (strncmp(buffer, "send", 4) == 0)
         {
-            char *strp;
-            char *msg = (char *)malloc(MAXDATALEN);
-            int my_port, x, y;
-            int msglen;
-            int space_pos = next_space(buffer + 6);
+             int space_pos = next_space(buffer + 6);
             char *group_id_str = malloc(sizeof(MAXDATALEN));
             strncpy(group_id_str, buffer + 6, space_pos);
             int group_id = atoi(group_id_str);
 
-            if (search_list(args.port, groups[group_id], group_tail[group_id]) == -1)
+            if (search_list(my_port, groups[group_id], group_tail[group_id]) == -1)
             {
                 continue;
             }
 
-            printf("%s %s\n", args.username, buffer);
-            strcpy(msg, args.username);
+            printf("%s %s\n", uname, buffer);
+            strcpy(msg, uname);
             x = strlen(msg);
             strp = msg;
             strp += x;
@@ -139,18 +107,19 @@ void *client_handler(void *vargp)
 
             for (int i = 0; i < group_tail[group_id]; i++)
             {
-                if (groups[group_id][i].port != args.port)
+                if (groups[group_id][i].port != my_port)
                     send(groups[group_id][i].port, msg, msglen, 0);
             }
 
             bzero(msg, MAXDATALEN);
         }
-        display_list(users, user_tail);
+        //display_list(users, user_tail);
     }
 }
 
 int main(int argc, char const *argv[])
 {
+    pthread_t thr;
     int server_fd;
     server_fd = socket(AF_INET, SOCK_STREAM, 0); // TODO: What is this do
     if (server_fd == 0)
@@ -191,11 +160,25 @@ int main(int argc, char const *argv[])
         }
 
         printf("Accepted client %s:%d id:%d\n", inet_ntoa(address.sin_addr), ntohs(address.sin_port), client_socket);
+
+         /* getting username */
+        bzero(username, 10);
+        if (recv(client_socket, username, sizeof(username), 0) > 0)
+            ;
+        username[strlen(username) - 1] = ':';
+
         insert_list(client_socket, username, users, &user_tail); 
 
         // Using thread to handle the client
         pthread_t thread_id;
         pthread_create(&thread_id, NULL, client_handler, (void *)&client_socket);
+
+        User args; 
+        args.port = client_socket;
+        strcpy(args.username, username);
+
+        pthread_create(&thr, NULL, client_handler, (void *)&args); 
+        pthread_detach(thr);
     }
 
     return 0;

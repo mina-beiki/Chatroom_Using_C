@@ -72,8 +72,9 @@ int main(int argc, char const *argv[])
     char name[20];
 
     
-    strcpy(name, argv[2]);
-    printf("name=%s\n",name);
+    strcpy(command, argv[3]);
+
+    //printf("name=%s\n",name);
 
     while (1)
     {
