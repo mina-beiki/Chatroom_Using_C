@@ -1,6 +1,7 @@
 {
     "files.associations": {
-        "socket.h": "c"
+        "socket.h": "c",
+        "cstdlib": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }

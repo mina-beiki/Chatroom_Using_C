@@ -72,7 +72,8 @@ int main(int argc, char const *argv[])
     char name[20];
 
     
-    strcpy(command, argv[3]);
+    strcpy(name, argv[3]);
+    send(sock, name, strlen(name), 0);
 
     //printf("name=%s\n",name);
 
